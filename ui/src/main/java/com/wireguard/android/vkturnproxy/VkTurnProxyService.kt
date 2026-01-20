@@ -29,6 +29,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.io.BufferedReader
+import java.io.File
+import java.io.FileInputStream
+import java.io.FileOutputStream
 import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -153,6 +156,51 @@ class VkTurnProxyService : Service() {
         }
     }
 
+    /**
+     * Extract and prepare the native binary for execution.
+     * Copies from nativeLibraryDir to filesDir and sets executable permission.
+     */
+    private fun prepareBinary(): File? {
+        val binaryName = "vkturnproxy"
+        val targetFile = File(filesDir, binaryName)
+        
+        // Check if binary already exists and is executable
+        if (targetFile.exists() && targetFile.canExecute()) {
+            addLogEntry("D", "Binary already prepared: ${targetFile.absolutePath}")
+            return targetFile
+        }
+        
+        // Try to find source binary in nativeLibraryDir
+        val sourceFile = File(applicationInfo.nativeLibraryDir, "libvkturnproxy.so")
+        
+        if (!sourceFile.exists()) {
+            addLogEntry("E", "Source binary not found: ${sourceFile.absolutePath}")
+            return null
+        }
+        
+        addLogEntry("D", "Copying binary from ${sourceFile.absolutePath}")
+        
+        try {
+            // Copy file to filesDir
+            FileInputStream(sourceFile).use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+            
+            // Set executable permission
+            if (!targetFile.setExecutable(true, false)) {
+                addLogEntry("W", "Failed to set executable permission")
+            }
+            
+            addLogEntry("I", "Binary prepared: ${targetFile.absolutePath}")
+            return targetFile
+        } catch (e: Exception) {
+            addLogEntry("E", "Failed to prepare binary: ${e.message}")
+            return null
+        }
+    }
+
     private suspend fun runProxy(config: VkTurnProxyConfig) {
         try {
             val linkCode = config.extractLinkCode()
@@ -164,9 +212,20 @@ class VkTurnProxyService : Service() {
             
             addLogEntry("I", "Connecting to TURN server...")
             
+            // Prepare binary (copy to filesDir and set executable)
+            val binaryFile = prepareBinary()
+            if (binaryFile == null) {
+                addLogEntry("E", "Failed to prepare native binary")
+                addLogEntry("W", "Native VK Turn Proxy binary is not available.")
+                addLogEntry("I", "Please rebuild the APK with vk-turn-proxy support.")
+                addLogEntry("I", "See: https://github.com/cacggghp/vk-turn-proxy")
+                stopProxy()
+                return
+            }
+            
             // Build command arguments for native binary
             val args = mutableListOf(
-                "${applicationInfo.nativeLibraryDir}/libvkturnproxy.so",
+                binaryFile.absolutePath,
                 "-peer", "${config.peerServerAddress}:${config.peerServerPort}",
                 "-link", linkCode,
                 "-listen", "127.0.0.1:${config.listenPort}",
@@ -218,7 +277,7 @@ class VkTurnProxyService : Service() {
             } catch (e: Exception) {
                 addLogEntry("E", "Failed to start native process: ${e.message}")
                 addLogEntry("W", "Native VK Turn Proxy binary is not available.")
-                addLogEntry("I", "Please install the native vk-turn-proxy binary to use this feature.")
+                addLogEntry("I", "Please rebuild the APK with vk-turn-proxy support.")
                 addLogEntry("I", "See: https://github.com/cacggghp/vk-turn-proxy")
                 
                 // Stop the service since native binary is not available
