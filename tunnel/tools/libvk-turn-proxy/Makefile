@@ -56,6 +56,7 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
+	mkdir -p "$(DESTDIR)"
 	cd "$(BUILDDIR)/vk-turn-proxy/src/client" && go build -ldflags="-buildid= -s -w" -v -trimpath -buildvcs=false -o "$@"
 
 .DELETE_ON_ERROR:
