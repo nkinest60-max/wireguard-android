@@ -32,7 +32,18 @@ VK_TURN_PROXY_COMMIT := HEAD
 
 default: $(DESTDIR)/libvkturnproxy.so
 
+# Print debug info at start
+$(info VK-TURN-PROXY BUILD)
+$(info BUILDDIR=$(BUILDDIR))
+$(info DESTDIR=$(DESTDIR))
+$(info GOARCH=$(GOARCH))
+$(info GOOS=$(GOOS))
+$(info ANDROID_ARCH_NAME=$(ANDROID_ARCH_NAME))
+$(info GO_PLATFORM=$(GO_PLATFORM))
+$(info GRADLE_USER_HOME=$(GRADLE_USER_HOME))
+
 $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL):
+	@echo "[VK-TURN-PROXY] Downloading Go $(GO_VERSION)..."
 	mkdir -p "$(dir $@)"
 	flock "$@.lock" -c ' \
 	[ -f "$@" ] && exit 0; \
@@ -41,6 +52,7 @@ $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL):
 	mv "$@.tmp" "$@"'
 
 $(BUILDDIR)/go-$(GO_VERSION)/.prepared: $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL)
+	@echo "[VK-TURN-PROXY] Extracting Go $(GO_VERSION) to $(BUILDDIR)/go-$(GO_VERSION)..."
 	mkdir -p "$(dir $@)"
 	flock "$@.lock" -c ' \
 	[ -f "$@" ] && exit 0; \
@@ -48,15 +60,22 @@ $(BUILDDIR)/go-$(GO_VERSION)/.prepared: $(GRADLE_USER_HOME)/caches/golang/$(GO_T
 	touch "$@"'
 
 $(BUILDDIR)/vk-turn-proxy/.prepared:
+	@echo "[VK-TURN-PROXY] Cloning vk-turn-proxy repository..."
 	mkdir -p "$(dir $@)"
 	flock "$@.lock" -c ' \
 	[ -f "$@" ] && exit 0; \
 	git clone --depth 1 $(VK_TURN_PROXY_REPO) "$(BUILDDIR)/vk-turn-proxy/src" && \
 	touch "$@"'
+	@echo "[VK-TURN-PROXY] Repository cloned to $(BUILDDIR)/vk-turn-proxy/src"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
+	@echo "[VK-TURN-PROXY] Building libvkturnproxy.so for GOARCH=$(GOARCH)..."
+	@echo "[VK-TURN-PROXY] PATH=$(PATH)"
+	@echo "[VK-TURN-PROXY] Go version: $$($(BUILDDIR)/go-$(GO_VERSION)/bin/go version)"
 	mkdir -p "$(DESTDIR)"
-	cd "$(BUILDDIR)/vk-turn-proxy/src/client" && go build -ldflags="-buildid= -s -w" -v -trimpath -buildvcs=false -o "$@"
+	cd "$(BUILDDIR)/vk-turn-proxy/src/client" && $(BUILDDIR)/go-$(GO_VERSION)/bin/go build -ldflags="-buildid= -s -w" -v -trimpath -buildvcs=false -o "$@"
+	@echo "[VK-TURN-PROXY] Build complete: $@"
+	@ls -la "$@"
 
 .DELETE_ON_ERROR:
