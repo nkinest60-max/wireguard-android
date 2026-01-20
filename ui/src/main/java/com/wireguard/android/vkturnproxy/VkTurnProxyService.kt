@@ -170,11 +170,11 @@ class VkTurnProxyService : Service() {
             return targetFile
         }
         
-        // Try to find source binary in nativeLibraryDir
-        val sourceFile = File(applicationInfo.nativeLibraryDir, "libvkturnproxy.so")
+        // Try to find source binary - check multiple locations
+        val sourceFile = findSourceBinary()
         
-        if (!sourceFile.exists()) {
-            addLogEntry("E", "Source binary not found: ${sourceFile.absolutePath}")
+        if (sourceFile == null) {
+            addLogEntry("E", "Source binary not found in any location")
             return null
         }
         
@@ -199,6 +199,62 @@ class VkTurnProxyService : Service() {
             addLogEntry("E", "Failed to prepare binary: ${e.message}")
             return null
         }
+    }
+    
+    /**
+     * Find the source binary in various possible locations.
+     * Android may put native libraries in different directories depending on ABI.
+     */
+    private fun findSourceBinary(): File? {
+        val binaryName = "libvkturnproxy.so"
+        
+        // 1. First try the standard nativeLibraryDir
+        val nativeLibDir = File(applicationInfo.nativeLibraryDir)
+        addLogEntry("D", "Checking nativeLibraryDir: ${nativeLibDir.absolutePath}")
+        
+        val standardPath = File(nativeLibDir, binaryName)
+        if (standardPath.exists()) {
+            addLogEntry("D", "Found in nativeLibraryDir: ${standardPath.absolutePath}")
+            return standardPath
+        }
+        
+        // 2. Try to find in app's lib directory with different ABI names
+        val appDir = applicationInfo.sourceDir?.let { File(it).parentFile }
+        if (appDir != null) {
+            addLogEntry("D", "Checking app directory: ${appDir.absolutePath}")
+            
+            val libDir = File(appDir, "lib")
+            if (libDir.exists() && libDir.isDirectory) {
+                // List all subdirectories and try to find the binary
+                libDir.listFiles()?.forEach { abiDir ->
+                    if (abiDir.isDirectory) {
+                        val binaryFile = File(abiDir, binaryName)
+                        addLogEntry("D", "Checking: ${binaryFile.absolutePath}")
+                        if (binaryFile.exists()) {
+                            addLogEntry("D", "Found: ${binaryFile.absolutePath}")
+                            return binaryFile
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 3. Try common ABI directory names relative to nativeLibraryDir parent
+        val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "arm64", "arm")
+        val libParent = nativeLibDir.parentFile
+        if (libParent != null) {
+            for (abi in abiNames) {
+                val abiPath = File(libParent, abi)
+                val binaryFile = File(abiPath, binaryName)
+                if (binaryFile.exists()) {
+                    addLogEntry("D", "Found in ABI dir: ${binaryFile.absolutePath}")
+                    return binaryFile
+                }
+            }
+        }
+        
+        addLogEntry("E", "Binary not found in any location")
+        return null
     }
 
     private suspend fun runProxy(config: VkTurnProxyConfig) {
