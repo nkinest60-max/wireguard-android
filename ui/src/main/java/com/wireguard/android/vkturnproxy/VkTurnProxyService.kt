@@ -204,11 +204,30 @@ class VkTurnProxyService : Service() {
     /**
      * Find the source binary in various possible locations.
      * Android may put native libraries in different directories depending on ABI.
+     * The nativeLibraryDir may return short names (arm64) but files are in full ABI dirs (arm64-v8a).
      */
     private fun findSourceBinary(): File? {
         val binaryName = "libvkturnproxy.so"
+        val libShortName = "vkturnproxy" // without lib prefix and .so suffix
         
-        // 1. First try the standard nativeLibraryDir
+        // 1. Try using ClassLoader to find the library path (most reliable method)
+        try {
+            val classLoader = applicationContext.classLoader
+            // Use reflection to call findLibrary method
+            val findLibraryMethod = classLoader.javaClass.getMethod("findLibrary", String::class.java)
+            val libraryPath = findLibraryMethod.invoke(classLoader, libShortName) as? String
+            if (libraryPath != null) {
+                val file = File(libraryPath)
+                if (file.exists()) {
+                    addLogEntry("D", "Found via ClassLoader: ${file.absolutePath}")
+                    return file
+                }
+            }
+        } catch (e: Exception) {
+            addLogEntry("D", "ClassLoader method failed: ${e.message}")
+        }
+        
+        // 2. Try nativeLibraryDir directly
         val nativeLibDir = File(applicationInfo.nativeLibraryDir)
         addLogEntry("D", "Checking nativeLibraryDir: ${nativeLibDir.absolutePath}")
         
@@ -218,37 +237,49 @@ class VkTurnProxyService : Service() {
             return standardPath
         }
         
-        // 2. Try to find in app's lib directory with different ABI names
-        val appDir = applicationInfo.sourceDir?.let { File(it).parentFile }
-        if (appDir != null) {
-            addLogEntry("D", "Checking app directory: ${appDir.absolutePath}")
-            
-            val libDir = File(appDir, "lib")
-            if (libDir.exists() && libDir.isDirectory) {
-                // List all subdirectories and try to find the binary
-                libDir.listFiles()?.forEach { abiDir ->
-                    if (abiDir.isDirectory) {
-                        val binaryFile = File(abiDir, binaryName)
-                        addLogEntry("D", "Checking: ${binaryFile.absolutePath}")
-                        if (binaryFile.exists()) {
-                            addLogEntry("D", "Found: ${binaryFile.absolutePath}")
-                            return binaryFile
-                        }
+        // 3. The nativeLibraryDir may have wrong ABI name (arm64 vs arm64-v8a)
+        // Try to get the parent "lib" directory and scan all ABI subdirectories
+        val libDir = nativeLibDir.parentFile
+        if (libDir != null && libDir.name == "lib") {
+            addLogEntry("D", "Scanning lib directory: ${libDir.absolutePath}")
+            libDir.listFiles()?.forEach { abiDir ->
+                if (abiDir.isDirectory) {
+                    val binaryFile = File(abiDir, binaryName)
+                    addLogEntry("D", "Checking ABI: ${abiDir.name} -> ${binaryFile.absolutePath}")
+                    if (binaryFile.exists()) {
+                        addLogEntry("D", "Found in ABI: ${binaryFile.absolutePath}")
+                        return binaryFile
                     }
                 }
             }
         }
         
-        // 3. Try common ABI directory names relative to nativeLibraryDir parent
-        val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "arm64", "arm")
-        val libParent = nativeLibDir.parentFile
-        if (libParent != null) {
+        // 4. Also check common ABI names explicitly
+        val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        if (libDir != null) {
             for (abi in abiNames) {
-                val abiPath = File(libParent, abi)
-                val binaryFile = File(abiPath, binaryName)
+                val binaryFile = File(File(libDir, abi), binaryName)
                 if (binaryFile.exists()) {
-                    addLogEntry("D", "Found in ABI dir: ${binaryFile.absolutePath}")
+                    addLogEntry("D", "Found via explicit ABI: ${binaryFile.absolutePath}")
                     return binaryFile
+                }
+            }
+        }
+        
+        // 5. Try app's source directory
+        val appDir = applicationInfo.sourceDir?.let { File(it).parentFile }
+        if (appDir != null && appDir != libDir?.parentFile) {
+            addLogEntry("D", "Checking app directory: ${appDir.absolutePath}")
+            val appLibDir = File(appDir, "lib")
+            if (appLibDir.exists() && appLibDir.isDirectory) {
+                appLibDir.listFiles()?.forEach { abiDir ->
+                    if (abiDir.isDirectory) {
+                        val binaryFile = File(abiDir, binaryName)
+                        if (binaryFile.exists()) {
+                            addLogEntry("D", "Found in app lib: ${binaryFile.absolutePath}")
+                            return binaryFile
+                        }
+                    }
                 }
             }
         }
