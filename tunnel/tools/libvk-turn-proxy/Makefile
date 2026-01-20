@@ -30,17 +30,9 @@ GO_HASH_linux-amd64 := 3333f6ea53afa971e9078895eaa4ac7204a8c6b5c68c10e6bc9a33e8e
 VK_TURN_PROXY_REPO := https://github.com/cacggghp/vk-turn-proxy.git
 VK_TURN_PROXY_COMMIT := HEAD
 
+# Mark default as PHONY to always rebuild
+.PHONY: default
 default: $(DESTDIR)/libvkturnproxy.so
-
-# Print debug info at start
-$(info VK-TURN-PROXY BUILD)
-$(info BUILDDIR=$(BUILDDIR))
-$(info DESTDIR=$(DESTDIR))
-$(info GOARCH=$(GOARCH))
-$(info GOOS=$(GOOS))
-$(info ANDROID_ARCH_NAME=$(ANDROID_ARCH_NAME))
-$(info GO_PLATFORM=$(GO_PLATFORM))
-$(info GRADLE_USER_HOME=$(GRADLE_USER_HOME))
 
 $(GRADLE_USER_HOME)/caches/golang/$(GO_TARBALL):
 	@echo "[VK-TURN-PROXY] Downloading Go $(GO_VERSION)..."

@@ -47,8 +47,28 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
+      - name: List native libraries in Debug APK
+        run: |
+          echo "=== Native libraries in Debug APK ==="
+          APK_FILE=$(find ui/build/outputs/apk/debug -name "*.apk" | head -1)
+          if [ -n "$APK_FILE" ]; then
+            unzip -l "$APK_FILE" | grep -E "lib/.*\.so$" || echo "No .so files found"
+          else
+            echo "No APK found"
+          fi
+
       - name: Build Release APK (signed with debug key)
         run: ./gradlew assembleRelease
+
+      - name: List native libraries in Release APK
+        run: |
+          echo "=== Native libraries in Release APK ==="
+          APK_FILE=$(find ui/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -n "$APK_FILE" ]; then
+            unzip -l "$APK_FILE" | grep -E "lib/.*\.so$" || echo "No .so files found"
+          else
+            echo "No APK found"
+          fi
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
