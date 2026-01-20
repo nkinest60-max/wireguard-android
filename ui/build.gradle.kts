@@ -32,10 +32,21 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
         isCoreLibraryDesugaringEnabled = true
     }
+    signingConfigs {
+        create("release") {
+            // Use debug keystore for CI builds (for testing purposes)
+            // For production releases, configure proper signing keys
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
     buildTypes {
         release {
             isMinifyEnabled = true
             isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles("proguard-android-optimize.txt")
             packaging {
                 resources {

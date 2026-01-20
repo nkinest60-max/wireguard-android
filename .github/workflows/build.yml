@@ -36,13 +36,18 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      - name: Create debug keystore for signing
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug
 
-      - name: Build Release APK (unsigned)
+      - name: Build Release APK (signed with debug key)
         run: ./gradlew assembleRelease
 
       - name: Upload Debug APK
