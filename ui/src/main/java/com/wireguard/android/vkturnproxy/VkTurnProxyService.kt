@@ -217,10 +217,13 @@ class VkTurnProxyService : Service() {
                 
             } catch (e: Exception) {
                 addLogEntry("E", "Failed to start native process: ${e.message}")
-                addLogEntry("I", "Note: Native binary may not be available. Using simulated proxy mode.")
+                addLogEntry("W", "Native VK Turn Proxy binary is not available.")
+                addLogEntry("I", "Please install the native vk-turn-proxy binary to use this feature.")
+                addLogEntry("I", "See: https://github.com/cacggghp/vk-turn-proxy")
                 
-                // Simulated proxy mode for testing
-                simulateProxy(config)
+                // Stop the service since native binary is not available
+                stopProxy()
+                return
             }
             
         } catch (e: Exception) {
@@ -228,17 +231,6 @@ class VkTurnProxyService : Service() {
             Log.e(TAG, "Proxy error", e)
         } finally {
             stopProxy()
-        }
-    }
-    
-    private suspend fun simulateProxy(config: VkTurnProxyConfig) {
-        addLogEntry("I", "Running in simulated mode")
-        addLogEntry("I", "Waiting for connections on 127.0.0.1:${config.listenPort}")
-        
-        // Keep the service running 
-        while (_isRunning.value) {
-            kotlinx.coroutines.delay(5000)
-            addLogEntry("D", "Proxy heartbeat - still running")
         }
     }
 
@@ -265,7 +257,7 @@ class VkTurnProxyService : Service() {
                 PowerManager.PARTIAL_WAKE_LOCK,
                 "VkTurnProxy::WakeLock"
             ).apply {
-                acquire(10 * 60 * 60 * 1000L) // 10 hours max
+                acquire(MAX_WAKE_LOCK_DURATION_MS)
             }
         }
     }
@@ -315,6 +307,8 @@ class VkTurnProxyService : Service() {
         private const val CHANNEL_ID = "vk_turn_proxy_channel"
         private const val NOTIFICATION_ID = 2
         private const val MAX_LOG_LINES = 1000
+        /** Maximum duration for wake lock in milliseconds (10 hours) */
+        private const val MAX_WAKE_LOCK_DURATION_MS = 10 * 60 * 60 * 1000L
         
         const val ACTION_START = "com.wireguard.android.action.VK_TURN_PROXY_START"
         const val ACTION_STOP = "com.wireguard.android.action.VK_TURN_PROXY_STOP"

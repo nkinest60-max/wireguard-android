@@ -61,6 +61,9 @@ data class VkTurnProxyConfig(
         override fun createFromParcel(parcel: Parcel): VkTurnProxyConfig = VkTurnProxyConfig(parcel)
         override fun newArray(size: Int): Array<VkTurnProxyConfig?> = arrayOfNulls(size)
         
+        /** Length of VK call link code (the unique identifier portion of the URL) */
+        const val VK_LINK_CODE_LENGTH = 43
+        
         // DataStore preference keys
         val KEY_ENABLED = booleanPreferencesKey("vk_turn_proxy_enabled")
         val KEY_VK_CALL_LINK = stringPreferencesKey("vk_turn_proxy_call_link")
@@ -77,13 +80,15 @@ data class VkTurnProxyConfig(
     
     /**
      * Extract link code from VK call URL
+     * VK call links have format: https://vk.com/call/join/XXXX...
+     * The link code is the last VK_LINK_CODE_LENGTH characters of the URL
      */
     fun extractLinkCode(): String {
         if (vkCallLink.isBlank()) return ""
         val link = vkCallLink.trim()
         // Link format: https://vk.com/call/join/XXXXXX...
-        return if (link.length >= 43) {
-            link.substring(link.length - 43)
+        return if (link.length >= VK_LINK_CODE_LENGTH) {
+            link.substring(link.length - VK_LINK_CODE_LENGTH)
         } else {
             link
         }
