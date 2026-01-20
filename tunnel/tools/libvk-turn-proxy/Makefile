@@ -13,9 +13,10 @@ NDK_GO_ARCH_MAP_mips := mipsx
 NDK_GO_ARCH_MAP_mips64 := mips64x
 
 export GOARCH := $(NDK_GO_ARCH_MAP_$(ANDROID_ARCH_NAME))
-export GOOS := android
-# Disable CGO to avoid wlynxg/anet compatibility issues with Go 1.24+
-# The vk-turn-proxy client works fine without CGO for basic networking
+# Use linux instead of android to avoid wlynxg/anet linkname issues
+# Linux static binaries work fine on Android
+export GOOS := linux
+# Disable CGO for static binary
 export CGO_ENABLED := 0
 
 GO_VERSION := 1.24.3
