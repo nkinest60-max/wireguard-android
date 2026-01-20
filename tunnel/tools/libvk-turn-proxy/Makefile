@@ -12,21 +12,18 @@ NDK_GO_ARCH_MAP_arm64 := arm64
 NDK_GO_ARCH_MAP_mips := mipsx
 NDK_GO_ARCH_MAP_mips64 := mips64x
 
-comma := ,
-CLANG_FLAGS := --target=$(TARGET) --sysroot=$(SYSROOT)
-export CGO_CFLAGS := $(CLANG_FLAGS) $(subst -mthumb,-marm,$(CFLAGS))
-export CGO_LDFLAGS := $(CLANG_FLAGS) $(patsubst -Wl$(comma)--build-id=%,-Wl$(comma)--build-id=none,$(LDFLAGS)) -Wl,-soname=libvkturnproxy.so
 export GOARCH := $(NDK_GO_ARCH_MAP_$(ANDROID_ARCH_NAME))
 export GOOS := android
-export CGO_ENABLED := 1
+# Disable CGO to avoid wlynxg/anet compatibility issues with Go 1.24+
+# The vk-turn-proxy client works fine without CGO for basic networking
+export CGO_ENABLED := 0
 
-# vk-turn-proxy requires Go 1.25+ for github.com/wlynxg/anet compatibility
-GO_VERSION := 1.25.6
+GO_VERSION := 1.24.3
 GO_PLATFORM := $(shell uname -s | tr '[:upper:]' '[:lower:]')-$(NDK_GO_ARCH_MAP_$(shell uname -m))
 GO_TARBALL := go$(GO_VERSION).$(GO_PLATFORM).tar.gz
-GO_HASH_darwin-amd64 := e2b5b237f5c262931b8e280ac4b8363f156e19bfad5270c099998932819670b7
-GO_HASH_darwin-arm64 := 984521ae978a5377c7d782fd2dd953291840d7d3d0bd95781a1f32f16d94a006
-GO_HASH_linux-amd64 := f022b6aad78e362bcba9b0b94d09ad58c5a70c6ba3b7582905fababf5fe0181a
+GO_HASH_darwin-amd64 := 13e6fe3fcf65689d77d40e633de1e31c6febbdbcb846eb05fc2434ed2213e92b
+GO_HASH_darwin-arm64 := 64a3fa22142f627e78fac3018ce3d4aeace68b743eff0afda8aae0411df5e4fb
+GO_HASH_linux-amd64 := 3333f6ea53afa971e9078895eaa4ac7204a8c6b5c68c10e6bc9a33e8e391bdd8
 
 # vk-turn-proxy repository
 VK_TURN_PROXY_REPO := https://github.com/cacggghp/vk-turn-proxy.git
@@ -58,6 +55,6 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
-	cd "$(BUILDDIR)/vk-turn-proxy/src/client" && go build -ldflags="-buildid=" -v -trimpath -buildvcs=false -o "$@"
+	cd "$(BUILDDIR)/vk-turn-proxy/src/client" && go build -ldflags="-buildid= -s -w" -v -trimpath -buildvcs=false -o "$@"
 
 .DELETE_ON_ERROR:
