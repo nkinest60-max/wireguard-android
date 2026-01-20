@@ -303,6 +303,8 @@
     <string name="vk_turn_proxy_realm">TURN Realm</string>
     <string name="vk_turn_proxy_logs">Логи подключения</string>
     <string name="vk_turn_proxy_clear_logs">Очистить</string>
+    <string name="vk_turn_proxy_copy_logs">Копировать</string>
+    <string name="vk_turn_proxy_logs_copied">Логи скопированы в буфер обмена</string>
     <string name="vk_turn_proxy_settings_saved">Настройки сохранены</string>
     <string name="vk_turn_proxy_settings_error">Ошибка сохранения настроек: %s</string>
     <string name="vk_turn_proxy_invalid_config">Некорректная конфигурация. Проверьте VK ссылку и адрес сервера.</string>

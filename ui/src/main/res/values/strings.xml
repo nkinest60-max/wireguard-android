@@ -281,6 +281,8 @@
     <string name="vk_turn_proxy_realm">TURN Realm</string>
     <string name="vk_turn_proxy_logs">Connection Logs</string>
     <string name="vk_turn_proxy_clear_logs">Clear</string>
+    <string name="vk_turn_proxy_copy_logs">Copy</string>
+    <string name="vk_turn_proxy_logs_copied">Logs copied to clipboard</string>
     <string name="vk_turn_proxy_settings_saved">Settings saved</string>
     <string name="vk_turn_proxy_settings_error">Error saving settings: %s</string>
     <string name="vk_turn_proxy_invalid_config">Invalid configuration. Check VK link and server address.</string>

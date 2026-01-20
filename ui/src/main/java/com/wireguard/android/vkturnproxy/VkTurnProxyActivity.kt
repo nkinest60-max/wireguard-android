@@ -4,6 +4,8 @@
  */
 package com.wireguard.android.vkturnproxy
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -47,6 +49,7 @@ class VkTurnProxyActivity : AppCompatActivity() {
     private var proxyService: VkTurnProxyService? = null
     private var bound = false
     private lateinit var logAdapter: LogAdapter
+    private var currentLogs: List<VkTurnProxyService.LogEntry> = emptyList()
     
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -60,6 +63,7 @@ class VkTurnProxyActivity : AppCompatActivity() {
             }?.launchIn(lifecycleScope)
             
             proxyService?.logLines?.onEach { logs ->
+                currentLogs = logs
                 logAdapter.submitList(logs)
                 if (logs.isNotEmpty()) {
                     binding.logRecyclerView.scrollToPosition(logs.size - 1)
@@ -114,6 +118,27 @@ class VkTurnProxyActivity : AppCompatActivity() {
         binding.clearLogsButton.setOnClickListener {
             proxyService?.clearLogs()
         }
+        
+        // Copy logs button
+        binding.copyLogsButton.setOnClickListener {
+            copyLogsToClipboard()
+        }
+    }
+    
+    private fun copyLogsToClipboard() {
+        if (currentLogs.isEmpty()) {
+            return
+        }
+        
+        val logsText = currentLogs.joinToString("\n") { entry ->
+            "${entry.timestamp} [${entry.level}] ${entry.message}"
+        }
+        
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("VK Turn Proxy Logs", logsText)
+        clipboard.setPrimaryClip(clip)
+        
+        Toast.makeText(this, R.string.vk_turn_proxy_logs_copied, Toast.LENGTH_SHORT).show()
     }
     
     private fun loadSettings() {

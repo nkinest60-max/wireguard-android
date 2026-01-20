@@ -54,6 +54,7 @@
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/toggle_button"
+                            style="@style/Widget.Material3.Button.TonalButton"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
@@ -314,6 +315,13 @@
                             android:layout_weight="1"
                             android:text="@string/vk_turn_proxy_logs"
                             android:textAppearance="?attr/textAppearanceTitleMedium" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/copy_logs_button"
+                            style="@style/Widget.Material3.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="@string/vk_turn_proxy_copy_logs" />
 
                         <com.google.android.material.button.MaterialButton
                             android:id="@+id/clear_logs_button"
