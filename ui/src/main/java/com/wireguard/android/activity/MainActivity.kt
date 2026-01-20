@@ -19,6 +19,7 @@ import com.wireguard.android.R
 import com.wireguard.android.fragment.TunnelDetailFragment
 import com.wireguard.android.fragment.TunnelEditorFragment
 import com.wireguard.android.model.ObservableTunnel
+import com.wireguard.android.vkturnproxy.VkTurnProxyActivity
 
 /**
  * CRUD interface for WireGuard tunnels. This activity serves as the main entry point to the
@@ -90,6 +91,10 @@ class MainActivity : BaseActivity(), FragmentManager.OnBackStackChangedListener 
             R.id.menu_action_save -> false
             R.id.menu_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            R.id.menu_vk_turn_proxy -> {
+                startActivity(Intent(this, VkTurnProxyActivity::class.java))
                 true
             }
 

@@ -260,4 +260,37 @@
     <string name="biometric_prompt_private_key_title">Authenticate to view private key</string>
     <string name="biometric_auth_error">Authentication failure</string>
     <string name="biometric_auth_error_reason">Authentication failure: %s</string>
+    
+    <!-- VK Turn Proxy -->
+    <string name="vk_turn_proxy_title">VK Turn Proxy</string>
+    <string name="vk_turn_proxy_status">Status</string>
+    <string name="vk_turn_proxy_status_running">Proxy is running</string>
+    <string name="vk_turn_proxy_status_stopped">Proxy is stopped</string>
+    <string name="vk_turn_proxy_start">Start Proxy</string>
+    <string name="vk_turn_proxy_settings">Settings</string>
+    <string name="vk_turn_proxy_enabled">Enable VK Turn Proxy</string>
+    <string name="vk_turn_proxy_vk_link">VK Call Link</string>
+    <string name="vk_turn_proxy_peer_address">WG Server Address</string>
+    <string name="vk_turn_proxy_peer_port">WG Server Port</string>
+    <string name="vk_turn_proxy_listen_port">Listen Port</string>
+    <string name="vk_turn_proxy_connections">Connections</string>
+    <string name="vk_turn_proxy_use_udp">Use UDP connection</string>
+    <string name="vk_turn_proxy_advanced">Advanced Settings</string>
+    <string name="vk_turn_proxy_turn_server">TURN Server (optional)</string>
+    <string name="vk_turn_proxy_turn_port">TURN Port</string>
+    <string name="vk_turn_proxy_realm">TURN Realm</string>
+    <string name="vk_turn_proxy_logs">Connection Logs</string>
+    <string name="vk_turn_proxy_clear_logs">Clear</string>
+    <string name="vk_turn_proxy_settings_saved">Settings saved</string>
+    <string name="vk_turn_proxy_settings_error">Error saving settings: %s</string>
+    <string name="vk_turn_proxy_invalid_config">Invalid configuration. Check VK link and server address.</string>
+    <string name="vk_turn_proxy_notification_channel">VK Turn Proxy</string>
+    <string name="vk_turn_proxy_notification_channel_desc">VK Turn Proxy service notifications</string>
+    <string name="vk_turn_proxy_running">VK Turn Proxy is running</string>
+    <string name="vk_turn_proxy_running_desc">Traffic is being proxied through VK TURN servers</string>
+    <string name="vk_turn_proxy_help">Help</string>
+    <string name="vk_turn_proxy_help_title">How to use VK Turn Proxy</string>
+    <string name="vk_turn_proxy_help_message">VK Turn Proxy allows routing WireGuard traffic through VK TURN servers.\n\n1. Get a VK call link (create a call on vk.com)\n2. Enter your WireGuard server address and port\n3. Set local listen port (default: 9000)\n4. In WireGuard config, set endpoint to 127.0.0.1:9000\n5. Set MTU to 1420 in WireGuard config\n6. Add this app to WireGuard excluded apps\n7. Start the proxy, then enable WireGuard\n\nUse -n 1 (connections=1) for more stable but slower connection (~5 Mbit/s limit)</string>
+    <string name="stop">Stop</string>
+    <string name="vk_turn_proxy_menu">VK Turn Proxy</string>
 </resources>
