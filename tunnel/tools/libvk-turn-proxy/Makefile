@@ -59,6 +59,10 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	git clone --depth 1 $(VK_TURN_PROXY_REPO) "$(BUILDDIR)/vk-turn-proxy/src" && \
 	touch "$@"'
 	@echo "[VK-TURN-PROXY] Repository cloned to $(BUILDDIR)/vk-turn-proxy/src"
+	@echo "[VK-TURN-PROXY] Patching source for IPv4-only networking..."
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"tcp"/"tcp4"/g' {} \;
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"udp"/"udp4"/g' {} \;
+	@echo "[VK-TURN-PROXY] IPv4 patching complete"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
