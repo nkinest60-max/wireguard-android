@@ -338,6 +338,23 @@ class VkTurnProxyService : Service() {
                 val processBuilder = ProcessBuilder(args)
                     .redirectErrorStream(true)
                 
+                // Set environment variables to force IPv4 DNS resolution
+                val env = processBuilder.environment()
+                
+                // GODEBUG=netdns=go forces pure Go DNS resolver (works better on Android)
+                env["GODEBUG"] = "netdns=go"
+                
+                // Force IPv4 preference to avoid IPv6 DNS issues
+                if (config.forceIpv4) {
+                    // Use custom DNS server via environment
+                    env["DNS_SERVER"] = config.dnsServer
+                    // Force IPv4 network preference
+                    env["PREFER_IPV4"] = "1"
+                    addLogEntry("D", "Environment: GODEBUG=netdns=go DNS_SERVER=${config.dnsServer} PREFER_IPV4=1")
+                } else {
+                    addLogEntry("D", "Environment: GODEBUG=netdns=go")
+                }
+                
                 nativeProcess = processBuilder.start()
                 
                 addLogEntry("I", "Proxy process started")

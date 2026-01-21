@@ -196,7 +196,9 @@ class VkTurnProxyActivity : AppCompatActivity() {
             useUdp = binding.switchUdp.isChecked,
             turnServer = binding.editTurnServer.text.toString(),
             turnPort = binding.editTurnPort.text.toString().toIntOrNull() ?: 19302,
-            realm = binding.editRealm.text.toString()
+            realm = binding.editRealm.text.toString(),
+            dnsServer = "8.8.8.8",  // Default Google DNS for IPv4
+            forceIpv4 = true        // Force IPv4 to avoid emulator/IPv6 issues
         )
     }
     

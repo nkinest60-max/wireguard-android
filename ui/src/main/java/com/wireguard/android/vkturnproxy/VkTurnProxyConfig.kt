@@ -24,7 +24,9 @@ data class VkTurnProxyConfig(
     val useUdp: Boolean = false,
     val turnServer: String = "",
     val turnPort: Int = 19302,
-    val realm: String = "call6-7.vkuser.net"
+    val realm: String = "call6-7.vkuser.net",
+    val dnsServer: String = "8.8.8.8",  // DNS server for Go HTTP client
+    val forceIpv4: Boolean = true       // Force IPv4 to avoid IPv6 DNS issues
 ) : Parcelable {
     
     constructor(parcel: Parcel) : this(
@@ -38,7 +40,9 @@ data class VkTurnProxyConfig(
         parcel.readByte() != 0.toByte(),
         parcel.readString() ?: "",
         parcel.readInt(),
-        parcel.readString() ?: "call6-7.vkuser.net"
+        parcel.readString() ?: "call6-7.vkuser.net",
+        parcel.readString() ?: "8.8.8.8",
+        parcel.readByte() != 0.toByte()
     )
 
     override fun writeToParcel(parcel: Parcel, flags: Int) {
@@ -53,6 +57,8 @@ data class VkTurnProxyConfig(
         parcel.writeString(turnServer)
         parcel.writeInt(turnPort)
         parcel.writeString(realm)
+        parcel.writeString(dnsServer)
+        parcel.writeByte(if (forceIpv4) 1 else 0)
     }
 
     override fun describeContents(): Int = 0
@@ -76,6 +82,8 @@ data class VkTurnProxyConfig(
         val KEY_TURN_SERVER = stringPreferencesKey("vk_turn_proxy_turn_server")
         val KEY_TURN_PORT = intPreferencesKey("vk_turn_proxy_turn_port")
         val KEY_REALM = stringPreferencesKey("vk_turn_proxy_realm")
+        val KEY_DNS_SERVER = stringPreferencesKey("vk_turn_proxy_dns_server")
+        val KEY_FORCE_IPV4 = booleanPreferencesKey("vk_turn_proxy_force_ipv4")
     }
     
     /**
