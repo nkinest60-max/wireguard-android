@@ -82,10 +82,10 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 		-e 's/:= "tcp"/:= "tcp4"/g' \
 		-e 's/:= "udp"/:= "udp4"/g' \
 		{} \;
-	# Patch 3: Replace const declarations
+	# Patch 3: Replace const declarations (more specific pattern)
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
-		-e 's/const.*network.*=.*"tcp"/const network = "tcp4"/g' \
-		-e 's/const.*network.*=.*"udp"/const network = "udp4"/g' \
+		-e 's/const\s\+network\s*=\s*"tcp"/const network = "tcp4"/g' \
+		-e 's/const\s\+network\s*=\s*"udp"/const network = "udp4"/g' \
 		{} \;
 	# Patch 4: Create a Go init file to override DefaultResolver to IPv4-only
 	@echo "[VK-TURN-PROXY] Creating IPv4-only resolver override..."

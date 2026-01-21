@@ -217,7 +217,7 @@ class VkTurnProxyService : Service() {
     private fun extractBinaryFromApk(libraryPath: String, targetFile: File) {
         // Parse APK path and entry name from path like:
         // /data/app/.../base.apk!/lib/arm64-v8a/libvkturnproxy.so
-        val parts = libraryPath.split("!")
+        val parts = libraryPath.split("!", limit = 2)
         if (parts.size != 2) {
             throw IllegalArgumentException("Invalid APK library path: $libraryPath")
         }
@@ -230,7 +230,7 @@ class VkTurnProxyService : Service() {
         ZipFile(apkPath).use { zipFile ->
             val entry = zipFile.getEntry(entryName)
             if (entry == null) {
-                throw IllegalArgumentException("Entry not found in APK: $entryName")
+                throw IllegalArgumentException("Entry '$entryName' not found in APK: $apkPath")
             }
             
             zipFile.getInputStream(entry).use { input ->
