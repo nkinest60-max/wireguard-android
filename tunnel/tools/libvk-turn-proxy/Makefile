@@ -60,8 +60,21 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	touch "$@"'
 	@echo "[VK-TURN-PROXY] Repository cloned to $(BUILDDIR)/vk-turn-proxy/src"
 	@echo "[VK-TURN-PROXY] Patching source for IPv4-only networking..."
-	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"tcp"/"tcp4"/g' {} \;
-	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"udp"/"udp4"/g' {} \;
+	# Patch all network protocols to IPv4-only
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
+		-e 's/"tcp"/"tcp4"/g' \
+		-e 's/"udp"/"udp4"/g' \
+		{} \;
+	# Patch http.DefaultTransport references to use IPv4-only dialer
+	# This handles cases where http.DefaultTransport is used in HTTP clients
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
+		's/http\.DefaultTransport/\&http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (\&net.Dialer{}).DialContext}/g' \
+		{} \;
+	# Patch net.Dial calls to explicitly use tcp4
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
+		-e 's/\bnet\.Dial(\s*network\s*,/net.Dial("tcp4",/g' \
+		-e 's/\bnet\.DialTimeout(\s*network\s*,/net.DialTimeout("tcp4",/g' \
+		{} \;
 	@echo "[VK-TURN-PROXY] IPv4 patching complete"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)

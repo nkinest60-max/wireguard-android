@@ -210,6 +210,15 @@ class VkTurnProxyService : Service() {
         val binaryName = "libvkturnproxy.so"
         val libShortName = "vkturnproxy" // without lib prefix and .so suffix
         
+        // Log current device ABI information
+        val primaryAbi = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.LOLLIPOP) {
+            android.os.Build.SUPPORTED_ABIS.joinToString(", ")
+        } else {
+            @Suppress("DEPRECATION")
+            android.os.Build.CPU_ABI
+        }
+        addLogEntry("D", "Device ABI(s): $primaryAbi")
+        
         // 1. Try using ClassLoader to find the library path (most reliable method)
         try {
             val classLoader = applicationContext.classLoader
@@ -218,10 +227,13 @@ class VkTurnProxyService : Service() {
             val libraryPath = findLibraryMethod.invoke(classLoader, libShortName) as? String
             if (libraryPath != null) {
                 val file = File(libraryPath)
+                addLogEntry("D", "ClassLoader returned: ${file.absolutePath} (exists: ${file.exists()})")
                 if (file.exists()) {
-                    addLogEntry("D", "Found via ClassLoader: ${file.absolutePath}")
+                    addLogEntry("I", "Found via ClassLoader: ${file.absolutePath}")
                     return file
                 }
+            } else {
+                addLogEntry("D", "ClassLoader.findLibrary returned null")
             }
         } catch (e: Exception) {
             addLogEntry("D", "ClassLoader method failed: ${e.message}")
@@ -232,8 +244,9 @@ class VkTurnProxyService : Service() {
         addLogEntry("D", "Checking nativeLibraryDir: ${nativeLibDir.absolutePath}")
         
         val standardPath = File(nativeLibDir, binaryName)
+        addLogEntry("D", "Standard path exists: ${standardPath.exists()} -> ${standardPath.absolutePath}")
         if (standardPath.exists()) {
-            addLogEntry("D", "Found in nativeLibraryDir: ${standardPath.absolutePath}")
+            addLogEntry("I", "Found in nativeLibraryDir: ${standardPath.absolutePath}")
             return standardPath
         }
         
@@ -242,25 +255,37 @@ class VkTurnProxyService : Service() {
         val libDir = nativeLibDir.parentFile
         if (libDir != null && libDir.name == "lib") {
             addLogEntry("D", "Scanning lib directory: ${libDir.absolutePath}")
-            libDir.listFiles()?.forEach { abiDir ->
-                if (abiDir.isDirectory) {
-                    val binaryFile = File(abiDir, binaryName)
-                    addLogEntry("D", "Checking ABI: ${abiDir.name} -> ${binaryFile.absolutePath}")
-                    if (binaryFile.exists()) {
-                        addLogEntry("D", "Found in ABI: ${binaryFile.absolutePath}")
-                        return binaryFile
-                    }
+            val abiDirs = libDir.listFiles()?.filter { it.isDirectory }
+            addLogEntry("D", "Found ${abiDirs?.size ?: 0} ABI directories: ${abiDirs?.joinToString(", ") { it.name }}")
+            
+            abiDirs?.forEach { abiDir ->
+                val binaryFile = File(abiDir, binaryName)
+                addLogEntry("D", "Checking ${abiDir.name}: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
+                if (binaryFile.exists()) {
+                    addLogEntry("I", "Found in ABI directory: ${binaryFile.absolutePath}")
+                    return binaryFile
+                }
+                
+                // Also list all .so files in this directory for debugging
+                val soFiles = abiDir.listFiles { file -> file.extension == "so" }
+                if (!soFiles.isNullOrEmpty()) {
+                    addLogEntry("D", "  .so files in ${abiDir.name}: ${soFiles.joinToString(", ") { it.name }}")
                 }
             }
+        } else {
+            addLogEntry("D", "Parent dir: ${libDir?.absolutePath ?: "null"}, name: ${libDir?.name ?: "null"}")
         }
         
         // 4. Also check common ABI names explicitly
-        val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86")
+        val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "arm64", "armeabi")
         if (libDir != null) {
+            addLogEntry("D", "Checking explicit ABI names...")
             for (abi in abiNames) {
-                val binaryFile = File(File(libDir, abi), binaryName)
+                val abiPath = File(libDir, abi)
+                val binaryFile = File(abiPath, binaryName)
+                addLogEntry("D", "Checking $abi: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
                 if (binaryFile.exists()) {
-                    addLogEntry("D", "Found via explicit ABI: ${binaryFile.absolutePath}")
+                    addLogEntry("I", "Found via explicit ABI: ${binaryFile.absolutePath}")
                     return binaryFile
                 }
             }
@@ -272,19 +297,24 @@ class VkTurnProxyService : Service() {
             addLogEntry("D", "Checking app directory: ${appDir.absolutePath}")
             val appLibDir = File(appDir, "lib")
             if (appLibDir.exists() && appLibDir.isDirectory) {
+                addLogEntry("D", "App lib directory exists, scanning...")
                 appLibDir.listFiles()?.forEach { abiDir ->
                     if (abiDir.isDirectory) {
                         val binaryFile = File(abiDir, binaryName)
+                        addLogEntry("D", "Checking app ${abiDir.name}: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
                         if (binaryFile.exists()) {
-                            addLogEntry("D", "Found in app lib: ${binaryFile.absolutePath}")
+                            addLogEntry("I", "Found in app lib: ${binaryFile.absolutePath}")
                             return binaryFile
                         }
                     }
                 }
+            } else {
+                addLogEntry("D", "App lib directory doesn't exist or not a directory")
             }
         }
         
         addLogEntry("E", "Binary not found in any location")
+        addLogEntry("E", "This usually means the APK was not built with vk-turn-proxy support for this ABI")
         return null
     }
 
@@ -342,7 +372,8 @@ class VkTurnProxyService : Service() {
                 val env = processBuilder.environment()
                 
                 // GODEBUG=netdns=go forces pure Go DNS resolver (works better on Android)
-                env["GODEBUG"] = "netdns=go"
+                // We also add asyncpreemptoff=1 to improve stability on some Android versions
+                env["GODEBUG"] = "netdns=go,asyncpreemptoff=1"
                 
                 // Force IPv4 preference to avoid IPv6 DNS issues
                 if (config.forceIpv4) {
@@ -350,9 +381,11 @@ class VkTurnProxyService : Service() {
                     env["DNS_SERVER"] = config.dnsServer
                     // Force IPv4 network preference
                     env["PREFER_IPV4"] = "1"
-                    addLogEntry("D", "Environment: GODEBUG=netdns=go DNS_SERVER=${config.dnsServer} PREFER_IPV4=1")
+                    // Disable IPv6 at the Go level (if supported by the binary)
+                    env["DISABLE_IPV6"] = "1"
+                    addLogEntry("D", "Environment: GODEBUG=netdns=go,asyncpreemptoff=1 DNS_SERVER=${config.dnsServer} PREFER_IPV4=1 DISABLE_IPV6=1")
                 } else {
-                    addLogEntry("D", "Environment: GODEBUG=netdns=go")
+                    addLogEntry("D", "Environment: GODEBUG=netdns=go,asyncpreemptoff=1")
                 }
                 
                 nativeProcess = processBuilder.start()
