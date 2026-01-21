@@ -277,6 +277,9 @@ class VkTurnProxyService : Service() {
         }
         
         // 4. Also check common ABI names explicitly
+        // Include both standard Android ABI names (arm64-v8a, armeabi-v7a) and
+        // their short forms (arm64, armeabi) as Android may use either depending
+        // on the build configuration and device
         val abiNames = listOf("arm64-v8a", "armeabi-v7a", "x86_64", "x86", "arm64", "armeabi")
         if (libDir != null) {
             addLogEntry("D", "Checking explicit ABI names...")

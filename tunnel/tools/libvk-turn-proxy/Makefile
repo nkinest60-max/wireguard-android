@@ -60,20 +60,26 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	touch "$@"'
 	@echo "[VK-TURN-PROXY] Repository cloned to $(BUILDDIR)/vk-turn-proxy/src"
 	@echo "[VK-TURN-PROXY] Patching source for IPv4-only networking..."
-	# Patch 1: Replace all "tcp" with "tcp4" and "udp" with "udp4" in string literals
-	# This forces all network dial operations to use IPv4 only
+	# Patch to force IPv4-only networking throughout the vk-turn-proxy codebase
+	# This is necessary because Android emulators often have broken IPv6 DNS resolution
+	# We replace all network protocol strings to force IPv4: "tcp" -> "tcp4", "udp" -> "udp4"
+	# 
+	# Note: These patterns are intentionally broad to catch all network dial operations
+	# The vk-turn-proxy code is network-focused, so false positives are minimal
+	# Even if comments are changed, they don't affect the compiled binary
+	#
+	# Patch 1: Replace string literals
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
 		-e 's/"tcp"/"tcp4"/g' \
 		-e 's/"udp"/"udp4"/g' \
 		{} \;
-	# Patch 2: Also replace 'tcp' and 'udp' when used as variables
-	# Handle cases like: network := "tcp"
+	# Patch 2: Replace variable assignments (e.g., network := "tcp")
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
 		-e 's/= "tcp"/= "tcp4"/g' \
 		-e 's/= "udp"/= "udp4"/g' \
 		{} \;
 	@echo "[VK-TURN-PROXY] IPv4 patching complete"
-	@echo "[VK-TURN-PROXY] Note: These patches force all TCP/UDP connections to use IPv4 only"
+	@echo "[VK-TURN-PROXY] Note: All TCP/UDP connections will use IPv4 only"
 	@echo "[VK-TURN-PROXY] This prevents IPv6 DNS resolution issues on Android emulators"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
