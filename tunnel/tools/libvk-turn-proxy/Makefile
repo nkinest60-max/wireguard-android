@@ -60,22 +60,21 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	touch "$@"'
 	@echo "[VK-TURN-PROXY] Repository cloned to $(BUILDDIR)/vk-turn-proxy/src"
 	@echo "[VK-TURN-PROXY] Patching source for IPv4-only networking..."
-	# Patch all network protocols to IPv4-only
+	# Patch 1: Replace all "tcp" with "tcp4" and "udp" with "udp4" in string literals
+	# This forces all network dial operations to use IPv4 only
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
 		-e 's/"tcp"/"tcp4"/g' \
 		-e 's/"udp"/"udp4"/g' \
 		{} \;
-	# Patch http.DefaultTransport references to use IPv4-only dialer
-	# This handles cases where http.DefaultTransport is used in HTTP clients
+	# Patch 2: Also replace 'tcp' and 'udp' when used as variables
+	# Handle cases like: network := "tcp"
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
-		's/http\.DefaultTransport/\&http.Transport{Proxy: http.ProxyFromEnvironment, DialContext: (\&net.Dialer{}).DialContext}/g' \
-		{} \;
-	# Patch net.Dial calls to explicitly use tcp4
-	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
-		-e 's/\bnet\.Dial(\s*network\s*,/net.Dial("tcp4",/g' \
-		-e 's/\bnet\.DialTimeout(\s*network\s*,/net.DialTimeout("tcp4",/g' \
+		-e 's/= "tcp"/= "tcp4"/g' \
+		-e 's/= "udp"/= "udp4"/g' \
 		{} \;
 	@echo "[VK-TURN-PROXY] IPv4 patching complete"
+	@echo "[VK-TURN-PROXY] Note: These patches force all TCP/UDP connections to use IPv4 only"
+	@echo "[VK-TURN-PROXY] This prevents IPv6 DNS resolution issues on Android emulators"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
