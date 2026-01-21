@@ -282,4 +282,39 @@
     <string name="biometric_prompt_private_key_title">Аутентификация для просмотра приватного ключа</string>
     <string name="biometric_auth_error">Ошибка аутентификации</string>
     <string name="biometric_auth_error_reason">Ошибка аутентификации: %s</string>
+    
+    <!-- VK Turn Proxy -->
+    <string name="vk_turn_proxy_title">VK Turn Proxy</string>
+    <string name="vk_turn_proxy_status">Статус</string>
+    <string name="vk_turn_proxy_status_running">Прокси запущен</string>
+    <string name="vk_turn_proxy_status_stopped">Прокси остановлен</string>
+    <string name="vk_turn_proxy_start">Запустить прокси</string>
+    <string name="vk_turn_proxy_settings">Настройки</string>
+    <string name="vk_turn_proxy_enabled">Включить VK Turn Proxy</string>
+    <string name="vk_turn_proxy_vk_link">Ссылка на VK звонок</string>
+    <string name="vk_turn_proxy_peer_address">Адрес WG сервера</string>
+    <string name="vk_turn_proxy_peer_port">Порт WG сервера</string>
+    <string name="vk_turn_proxy_listen_port">Локальный порт</string>
+    <string name="vk_turn_proxy_connections">Соединения</string>
+    <string name="vk_turn_proxy_use_udp">Использовать UDP</string>
+    <string name="vk_turn_proxy_advanced">Дополнительные настройки</string>
+    <string name="vk_turn_proxy_turn_server">TURN сервер (опционально)</string>
+    <string name="vk_turn_proxy_turn_port">Порт TURN</string>
+    <string name="vk_turn_proxy_realm">TURN Realm</string>
+    <string name="vk_turn_proxy_logs">Логи подключения</string>
+    <string name="vk_turn_proxy_clear_logs">Очистить</string>
+    <string name="vk_turn_proxy_copy_logs">Копировать</string>
+    <string name="vk_turn_proxy_logs_copied">Логи скопированы в буфер обмена</string>
+    <string name="vk_turn_proxy_settings_saved">Настройки сохранены</string>
+    <string name="vk_turn_proxy_settings_error">Ошибка сохранения настроек: %s</string>
+    <string name="vk_turn_proxy_invalid_config">Некорректная конфигурация. Проверьте VK ссылку и адрес сервера.</string>
+    <string name="vk_turn_proxy_notification_channel">VK Turn Proxy</string>
+    <string name="vk_turn_proxy_notification_channel_desc">Уведомления сервиса VK Turn Proxy</string>
+    <string name="vk_turn_proxy_running">VK Turn Proxy запущен</string>
+    <string name="vk_turn_proxy_running_desc">Трафик проксируется через TURN серверы VK</string>
+    <string name="vk_turn_proxy_help">Справка</string>
+    <string name="vk_turn_proxy_help_title">Как использовать VK Turn Proxy</string>
+    <string name="vk_turn_proxy_help_message">VK Turn Proxy позволяет маршрутизировать трафик WireGuard через TURN серверы VK.\n\n1. Получите ссылку на VK звонок (создайте звонок на vk.com)\n2. Введите адрес и порт вашего WireGuard сервера\n3. Установите локальный порт (по умолчанию: 9000)\n4. В конфиге WireGuard установите endpoint 127.0.0.1:9000\n5. Установите MTU 1420 в конфиге WireGuard\n6. Добавьте это приложение в исключения WireGuard\n7. Запустите прокси, затем включите WireGuard\n\nИспользуйте -n 1 (соединения=1) для более стабильного, но медленного подключения (~5 Мбит/с)</string>
+    <string name="stop">Остановить</string>
+    <string name="vk_turn_proxy_menu">VK Turn Proxy</string>
 </resources>

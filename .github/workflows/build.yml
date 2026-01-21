@@ -1,0 +1,137 @@
+name: Build and Release Android APK
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Create debug keystore for signing
+        run: |
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US" -noprompt
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug
+
+      - name: List native libraries in Debug APK
+        run: |
+          echo "=== Native libraries in Debug APK ==="
+          APK_FILE=$(find ui/build/outputs/apk/debug -name "*.apk" | head -1)
+          if [ -n "$APK_FILE" ]; then
+            unzip -l "$APK_FILE" | grep -E "lib/.*\.so$" || echo "No .so files found"
+          else
+            echo "No APK found"
+          fi
+
+      - name: Build Release APK (signed with debug key)
+        run: ./gradlew assembleRelease
+
+      - name: List native libraries in Release APK
+        run: |
+          echo "=== Native libraries in Release APK ==="
+          APK_FILE=$(find ui/build/outputs/apk/release -name "*.apk" | head -1)
+          if [ -n "$APK_FILE" ]; then
+            unzip -l "$APK_FILE" | grep -E "lib/.*\.so$" || echo "No .so files found"
+          else
+            echo "No APK found"
+          fi
+
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wireguard-vk-proxy-debug
+          path: ui/build/outputs/apk/debug/*.apk
+
+      - name: Upload Release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: wireguard-vk-proxy-release
+          path: ui/build/outputs/apk/release/*.apk
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4.1.8
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: List downloaded files
+        run: |
+          echo "Downloaded files:"
+          find . -name "*.apk" -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: WireGuard VK Turn Proxy ${{ steps.get_version.outputs.VERSION }}
+          body: |
+            ## WireGuard with VK Turn Proxy
+            
+            This release includes VK Turn Proxy integration that allows routing WireGuard traffic through VK TURN servers.
+            
+            ### Features:
+            - VK Call link support for TURN authentication
+            - Configurable WireGuard server address and port
+            - Adjustable local listen port (default: 9000)
+            - MTU configuration (recommended: 1420)
+            - Multiple connections support (1-64)
+            - UDP mode option
+            - Connection logs viewer
+            
+            ### Installation:
+            1. Download the APK file
+            2. Install on your Android device
+            3. Open WireGuard and go to VK Turn Proxy from the menu
+            4. Configure your VK call link and WireGuard server
+            5. Set your WireGuard tunnel endpoint to 127.0.0.1:9000
+            6. Start the proxy, then enable the tunnel
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            wireguard-vk-proxy-debug/*.apk
+            wireguard-vk-proxy-release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
