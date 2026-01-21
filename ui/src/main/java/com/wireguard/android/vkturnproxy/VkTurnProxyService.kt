@@ -36,6 +36,7 @@ import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipFile
 
 /**
  * Foreground service that runs the VK Turn Proxy client
@@ -159,6 +160,7 @@ class VkTurnProxyService : Service() {
     /**
      * Extract and prepare the native binary for execution.
      * Copies from nativeLibraryDir to filesDir and sets executable permission.
+     * Handles both extracted libraries and libraries inside the APK.
      */
     private fun prepareBinary(): File? {
         val binaryName = "vkturnproxy"
@@ -171,20 +173,27 @@ class VkTurnProxyService : Service() {
         }
         
         // Try to find source binary - check multiple locations
-        val sourceFile = findSourceBinary()
+        val libraryPath = findSourceBinaryPath()
         
-        if (sourceFile == null) {
+        if (libraryPath == null) {
             addLogEntry("E", "Source binary not found in any location")
             return null
         }
         
-        addLogEntry("D", "Copying binary from ${sourceFile.absolutePath}")
+        addLogEntry("D", "Copying binary from $libraryPath")
         
         try {
-            // Copy file to filesDir
-            FileInputStream(sourceFile).use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
+            // Check if the library is inside an APK (path contains "!/")
+            if (libraryPath.contains("!")) {
+                // Extract from APK
+                extractBinaryFromApk(libraryPath, targetFile)
+            } else {
+                // Copy from filesystem
+                val sourceFile = File(libraryPath)
+                FileInputStream(sourceFile).use { input ->
+                    FileOutputStream(targetFile).use { output ->
+                        input.copyTo(output)
+                    }
                 }
             }
             
@@ -202,11 +211,47 @@ class VkTurnProxyService : Service() {
     }
     
     /**
+     * Extract binary from APK file.
+     * When extractNativeLibs=false, libraries are stored inside the APK.
+     */
+    private fun extractBinaryFromApk(libraryPath: String, targetFile: File) {
+        // Parse APK path and entry name from path like:
+        // /data/app/.../base.apk!/lib/arm64-v8a/libvkturnproxy.so
+        val parts = libraryPath.split("!")
+        if (parts.size != 2) {
+            throw IllegalArgumentException("Invalid APK library path: $libraryPath")
+        }
+        
+        val apkPath = parts[0]
+        val entryName = parts[1].trimStart('/')
+        
+        addLogEntry("D", "Extracting from APK: $apkPath, entry: $entryName")
+        
+        ZipFile(apkPath).use { zipFile ->
+            val entry = zipFile.getEntry(entryName)
+            if (entry == null) {
+                throw IllegalArgumentException("Entry not found in APK: $entryName")
+            }
+            
+            zipFile.getInputStream(entry).use { input ->
+                FileOutputStream(targetFile).use { output ->
+                    input.copyTo(output)
+                }
+            }
+        }
+        
+        addLogEntry("D", "Successfully extracted binary from APK")
+    }
+    
+    /**
      * Find the source binary in various possible locations.
      * Android may put native libraries in different directories depending on ABI.
      * The nativeLibraryDir may return short names (arm64) but files are in full ABI dirs (arm64-v8a).
+     * Returns the library path as a String, which may be either:
+     * - A filesystem path: /data/app/.../lib/arm64-v8a/libvkturnproxy.so
+     * - An APK path: /data/app/.../base.apk!/lib/arm64-v8a/libvkturnproxy.so
      */
-    private fun findSourceBinary(): File? {
+    private fun findSourceBinaryPath(): String? {
         val binaryName = "libvkturnproxy.so"
         val libShortName = "vkturnproxy" // without lib prefix and .so suffix
         
@@ -220,17 +265,25 @@ class VkTurnProxyService : Service() {
         addLogEntry("D", "Device ABI(s): $primaryAbi")
         
         // 1. Try using ClassLoader to find the library path (most reliable method)
+        // This works for both extracted libraries and libraries inside APKs
         try {
             val classLoader = applicationContext.classLoader
             // Use reflection to call findLibrary method
             val findLibraryMethod = classLoader.javaClass.getMethod("findLibrary", String::class.java)
             val libraryPath = findLibraryMethod.invoke(classLoader, libShortName) as? String
             if (libraryPath != null) {
-                val file = File(libraryPath)
-                addLogEntry("D", "ClassLoader returned: ${file.absolutePath} (exists: ${file.exists()})")
-                if (file.exists()) {
-                    addLogEntry("I", "Found via ClassLoader: ${file.absolutePath}")
-                    return file
+                // Check if it's an APK path (contains "!")
+                if (libraryPath.contains("!")) {
+                    addLogEntry("I", "Found in APK: $libraryPath")
+                    return libraryPath
+                } else {
+                    // Check if file exists on filesystem
+                    val file = File(libraryPath)
+                    addLogEntry("D", "ClassLoader returned: ${file.absolutePath} (exists: ${file.exists()})")
+                    if (file.exists()) {
+                        addLogEntry("I", "Found via ClassLoader: ${file.absolutePath}")
+                        return file.absolutePath
+                    }
                 }
             } else {
                 addLogEntry("D", "ClassLoader.findLibrary returned null")
@@ -247,7 +300,7 @@ class VkTurnProxyService : Service() {
         addLogEntry("D", "Standard path exists: ${standardPath.exists()} -> ${standardPath.absolutePath}")
         if (standardPath.exists()) {
             addLogEntry("I", "Found in nativeLibraryDir: ${standardPath.absolutePath}")
-            return standardPath
+            return standardPath.absolutePath
         }
         
         // 3. The nativeLibraryDir may have wrong ABI name (arm64 vs arm64-v8a)
@@ -263,7 +316,7 @@ class VkTurnProxyService : Service() {
                 addLogEntry("D", "Checking ${abiDir.name}: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
                 if (binaryFile.exists()) {
                     addLogEntry("I", "Found in ABI directory: ${binaryFile.absolutePath}")
-                    return binaryFile
+                    return binaryFile.absolutePath
                 }
                 
                 // Also list all .so files in this directory for debugging
@@ -289,7 +342,7 @@ class VkTurnProxyService : Service() {
                 addLogEntry("D", "Checking $abi: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
                 if (binaryFile.exists()) {
                     addLogEntry("I", "Found via explicit ABI: ${binaryFile.absolutePath}")
-                    return binaryFile
+                    return binaryFile.absolutePath
                 }
             }
         }
@@ -307,12 +360,36 @@ class VkTurnProxyService : Service() {
                         addLogEntry("D", "Checking app ${abiDir.name}: ${binaryFile.absolutePath} (exists: ${binaryFile.exists()})")
                         if (binaryFile.exists()) {
                             addLogEntry("I", "Found in app lib: ${binaryFile.absolutePath}")
-                            return binaryFile
+                            return binaryFile.absolutePath
                         }
                     }
                 }
             } else {
                 addLogEntry("D", "App lib directory doesn't exist or not a directory")
+            }
+        }
+        
+        // 6. Try to extract from APK directly
+        // This is a fallback for when extractNativeLibs=false
+        val sourceDir = applicationInfo.sourceDir
+        if (sourceDir != null) {
+            addLogEntry("D", "Attempting to find library in APK: $sourceDir")
+            try {
+                ZipFile(sourceDir).use { zipFile ->
+                    // Try different ABI paths in the APK
+                    for (abi in abiNames) {
+                        val entryName = "lib/$abi/$binaryName"
+                        val entry = zipFile.getEntry(entryName)
+                        if (entry != null) {
+                            val apkPath = "$sourceDir!/$entryName"
+                            addLogEntry("I", "Found in APK: $apkPath")
+                            return apkPath
+                        }
+                    }
+                    addLogEntry("D", "Library not found in APK entries")
+                }
+            } catch (e: Exception) {
+                addLogEntry("D", "Failed to search APK: ${e.message}")
             }
         }
         

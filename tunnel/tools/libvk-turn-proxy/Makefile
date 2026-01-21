@@ -68,16 +68,48 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	# The vk-turn-proxy code is network-focused, so false positives are minimal
 	# Even if comments are changed, they don't affect the compiled binary
 	#
-	# Patch 1: Replace string literals
+	# Patch 1: Replace all "tcp" and "udp" string literals with IPv4 versions
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
 		-e 's/"tcp"/"tcp4"/g' \
 		-e 's/"udp"/"udp4"/g' \
+		-e "s/'tcp'/'tcp4'/g" \
+		-e "s/'udp'/'udp4'/g" \
 		{} \;
-	# Patch 2: Replace variable assignments (e.g., network := "tcp")
+	# Patch 2: Replace variable assignments (e.g., network := "tcp", network = "tcp")
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
 		-e 's/= "tcp"/= "tcp4"/g' \
 		-e 's/= "udp"/= "udp4"/g' \
+		-e 's/:= "tcp"/:= "tcp4"/g' \
+		-e 's/:= "udp"/:= "udp4"/g' \
 		{} \;
+	# Patch 3: Replace const declarations
+	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -type f -exec sed -i \
+		-e 's/const.*network.*=.*"tcp"/const network = "tcp4"/g' \
+		-e 's/const.*network.*=.*"udp"/const network = "udp4"/g' \
+		{} \;
+	# Patch 4: Create a Go init file to override DefaultResolver to IPv4-only
+	@echo "[VK-TURN-PROXY] Creating IPv4-only resolver override..."
+	@echo 'package main' > "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo 'import (' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '	"net"' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '	"net/http"' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo ')' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '// Force IPv4-only networking for Android compatibility' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo 'func init() {' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '	// Override default HTTP transport to use IPv4-only dialer' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '	http.DefaultTransport = &http.Transport{' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '		DialContext: (&net.Dialer{}).DialContext,' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '		Dial: func(network, addr string) (net.Conn, error) {' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '			// Force tcp4 for all TCP connections' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '			if network == "tcp" || network == "tcp6" {' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '				network = "tcp4"' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '			}' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '			return net.Dial(network, addr)' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '		},' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '	}' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
+	@echo '}' >> "$(BUILDDIR)/vk-turn-proxy/src/client/ipv4_android.go"
 	@echo "[VK-TURN-PROXY] IPv4 patching complete"
 	@echo "[VK-TURN-PROXY] Note: All TCP/UDP connections will use IPv4 only"
 	@echo "[VK-TURN-PROXY] This prevents IPv6 DNS resolution issues on Android emulators"
