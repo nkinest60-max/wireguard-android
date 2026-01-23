@@ -162,15 +162,6 @@ class VkTurnProxyService : Service() {
      * Copies from nativeLibraryDir to filesDir and sets executable permission.
      */
     private fun prepareBinary(): File? {
-        val binaryName = "vkturnproxy"
-        val targetFile = File(filesDir, binaryName)
-        
-        // Check if binary already exists and is executable
-        if (targetFile.exists() && targetFile.canExecute()) {
-            addLogEntry("D", "Binary already prepared: ${targetFile.absolutePath}")
-            return targetFile
-        }
-        
         // Try to find source binary - check multiple locations
         val sourceFile = findSourceBinary()
         
@@ -179,8 +170,27 @@ class VkTurnProxyService : Service() {
             return null
         }
         
+        val sourcePath = sourceFile.absolutePath
+
+        // If it's a real file (not inside APK), check if it's executable
+        if (!sourcePath.contains("!/")) {
+            if (sourceFile.canExecute()) {
+                addLogEntry("D", "Using existing executable: $sourcePath")
+                return sourceFile
+            }
+            addLogEntry("D", "Source exists but not executable: $sourcePath")
+        }
+
+        val binaryName = "vkturnproxy"
+        val targetFile = File(filesDir, binaryName)
+
+        // Check if binary already exists and is executable in filesDir
+        if (targetFile.exists() && targetFile.canExecute()) {
+            addLogEntry("D", "Binary already prepared in filesDir: ${targetFile.absolutePath}")
+            return targetFile
+        }
+
         try {
-            val sourcePath = sourceFile.absolutePath
             if (sourcePath.contains("!/")) {
                 val parts = sourcePath.split("!/")
                 val apkPath = parts[0]
@@ -196,7 +206,7 @@ class VkTurnProxyService : Service() {
                 return null
             }
 
-            addLogEntry("D", "Copying binary from $sourcePath")
+            addLogEntry("D", "Copying binary from $sourcePath to ${targetFile.absolutePath}")
             // Copy file to filesDir
             FileInputStream(sourceFile).use { input ->
                 FileOutputStream(targetFile).use { output ->
