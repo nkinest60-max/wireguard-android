@@ -62,7 +62,9 @@ $(BUILDDIR)/vk-turn-proxy/.prepared:
 	@echo "[VK-TURN-PROXY] Patching source for IPv4-only networking..."
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"tcp"/"tcp4"/g' {} \;
 	find "$(BUILDDIR)/vk-turn-proxy/src" -name "*.go" -exec sed -i 's/"udp"/"udp4"/g' {} \;
-	@echo "[VK-TURN-PROXY] IPv4 patching complete"
+	@echo "[VK-TURN-PROXY] Applying IPv4 and DNS patches..."
+	cd "$(BUILDDIR)/vk-turn-proxy/src" && patch -p1 < "$(CURDIR)/ipv4-dns.patch"
+	@echo "[VK-TURN-PROXY] IPv4 and DNS patching complete"
 
 $(DESTDIR)/libvkturnproxy.so: export PATH := $(BUILDDIR)/go-$(GO_VERSION)/bin/:$(PATH)
 $(DESTDIR)/libvkturnproxy.so: $(BUILDDIR)/go-$(GO_VERSION)/.prepared $(BUILDDIR)/vk-turn-proxy/.prepared
