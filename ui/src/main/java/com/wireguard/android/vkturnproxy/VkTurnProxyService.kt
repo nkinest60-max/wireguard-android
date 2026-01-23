@@ -36,6 +36,7 @@ import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipFile
 
 /**
  * Foreground service that runs the VK Turn Proxy client
@@ -178,9 +179,24 @@ class VkTurnProxyService : Service() {
             return null
         }
         
-        addLogEntry("D", "Copying binary from ${sourceFile.absolutePath}")
-        
         try {
+            val sourcePath = sourceFile.absolutePath
+            if (sourcePath.contains("!/")) {
+                val parts = sourcePath.split("!/")
+                val apkPath = parts[0]
+                val libPathInApk = parts[1]
+                addLogEntry("D", "Extracting from APK: $apkPath, entry: $libPathInApk")
+                if (extractBinaryFromApk(apkPath, libPathInApk, targetFile)) {
+                    if (!targetFile.setExecutable(true, false)) {
+                        addLogEntry("W", "Failed to set executable permission")
+                    }
+                    addLogEntry("I", "Binary extracted and prepared: ${targetFile.absolutePath}")
+                    return targetFile
+                }
+                return null
+            }
+
+            addLogEntry("D", "Copying binary from $sourcePath")
             // Copy file to filesDir
             FileInputStream(sourceFile).use { input ->
                 FileOutputStream(targetFile).use { output ->
@@ -200,6 +216,30 @@ class VkTurnProxyService : Service() {
             return null
         }
     }
+
+    /**
+     * Extract a binary from an APK file.
+     */
+    private fun extractBinaryFromApk(apkPath: String, libraryPathInApk: String, targetFile: File): Boolean {
+        try {
+            ZipFile(apkPath).use { zipFile ->
+                val entry = zipFile.getEntry(libraryPathInApk)
+                if (entry == null) {
+                    addLogEntry("E", "Entry $libraryPathInApk not found in APK")
+                    return false
+                }
+                zipFile.getInputStream(entry).use { input ->
+                    FileOutputStream(targetFile).use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+            return true
+        } catch (e: Exception) {
+            addLogEntry("E", "Failed to extract from APK: ${e.message}")
+            return false
+        }
+    }
     
     /**
      * Find the source binary in various possible locations.
@@ -217,6 +257,10 @@ class VkTurnProxyService : Service() {
             val findLibraryMethod = classLoader.javaClass.getMethod("findLibrary", String::class.java)
             val libraryPath = findLibraryMethod.invoke(classLoader, libShortName) as? String
             if (libraryPath != null) {
+                if (libraryPath.contains("!/")) {
+                    addLogEntry("D", "ClassLoader returned path inside APK: $libraryPath")
+                    return File(libraryPath)
+                }
                 val file = File(libraryPath)
                 if (file.exists()) {
                     addLogEntry("D", "Found via ClassLoader: ${file.absolutePath}")
@@ -342,7 +386,9 @@ class VkTurnProxyService : Service() {
                 val env = processBuilder.environment()
                 
                 // GODEBUG=netdns=go forces pure Go DNS resolver (works better on Android)
-                env["GODEBUG"] = "netdns=go"
+                // asyncpreemptoff=1 avoids crashes on some Android kernels/emulators
+                val godebug = "netdns=go,asyncpreemptoff=1"
+                env["GODEBUG"] = godebug
                 
                 // Force IPv4 preference to avoid IPv6 DNS issues
                 if (config.forceIpv4) {
@@ -350,9 +396,11 @@ class VkTurnProxyService : Service() {
                     env["DNS_SERVER"] = config.dnsServer
                     // Force IPv4 network preference
                     env["PREFER_IPV4"] = "1"
-                    addLogEntry("D", "Environment: GODEBUG=netdns=go DNS_SERVER=${config.dnsServer} PREFER_IPV4=1")
+                    // Force disable IPv6
+                    env["DISABLE_IPV6"] = "1"
+                    addLogEntry("D", "Environment: GODEBUG=$godebug DNS_SERVER=${config.dnsServer} PREFER_IPV4=1 DISABLE_IPV6=1")
                 } else {
-                    addLogEntry("D", "Environment: GODEBUG=netdns=go")
+                    addLogEntry("D", "Environment: GODEBUG=$godebug")
                 }
                 
                 nativeProcess = processBuilder.start()
