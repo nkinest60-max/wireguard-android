@@ -76,6 +76,11 @@ public final class SharedLibraryLoader {
         File f = null;
         try {
             f = File.createTempFile("lib", ".so", context.getCodeCacheDir());
+            // Ensure loader can read/execute the temporary library file
+            // noinspection ResultOfMethodCallIgnored
+            f.setReadable(true, false);
+            // noinspection ResultOfMethodCallIgnored
+            f.setExecutable(true, false);
             if (extractLibrary(context, libName, f)) {
                 System.load(f.getAbsolutePath());
                 return;
